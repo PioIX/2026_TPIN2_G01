@@ -71,3 +71,49 @@ io.on("connection", (socket) => {
     console.log("Disconnect");
   });
 });
+
+//Agarrar usuarios de la base de datos
+app.get('/usuariosW', async function (req, res) {
+    try {
+      let respuesta = await realizarQuery('SELECT * FROM Usuarios WHERE mail="${req.query.mail}" AND contrasena="${req.query.contrasena}"');
+      res.send(respuesta);
+    }
+    catch (error) {
+      res.status(500).send({ error: error.message });
+    }
+})
+
+//Registro para agregar un usuario a la base de datos, o sea que el usuario ponga un nombre en el campo, un mail, una contraseña y cuando toca el boton registro se guarde ese usuario y se sume a la base de datos
+app.post('/usuariosW', async function (req, res) {
+  try {
+    let usuarioExistente = await realizarQuery('SELECT * FROM Usuarios WHERE mail="${req.body.mail}"');
+    console.log(usuarioExistente)
+    if (usuarioExistente.length > 0) {
+      res.send("El usuario ya existe");
+    } else {
+      await realizarQuery('INSERT INTO Usuarios (nombre_usuario,mail,contrasena) VALUES ("${req.body.nombre_usuario}","${req.body.mail}","${req.body.contrasena}")');
+      res.send({message:"usuario agregado"})
+    }
+
+    } catch (error) {
+      res.status(500).send({ error: error.message })
+    }
+})
+
+//Iniciar sesion (login)
+app.post('/login', async function (req, res) {
+  try {
+    let usuario = await realizarQuery(`SELECT * FROM Usuarios WHERE mail="${req.body.mail}" AND contrasena="${req.body.contrasena}"`);
+    if (usuario.length > 0) {
+      res.send({
+        message: "Login exitoso"
+      });
+    } else {
+      res.send({
+        message: "Mail o contraseña incorrectos"
+      });
+    }
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
+});
