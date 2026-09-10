@@ -75,7 +75,7 @@ io.on("connection", (socket) => {
 //Agarrar usuarios de la base de datos
 app.get('/usuariosW', async function (req, res) {
     try {
-      let respuesta = await realizarQuery('SELECT * FROM Usuarios WHERE mail="${req.query.mail}" AND contrasena="${req.query.contrasena}"');
+      let respuesta = await realizarQuery('SELECT * FROM Usuarios WHERE mail="${req.query.mail}" AND contraseña="${req.query.contraseña}"');
       res.send(respuesta);
     }
     catch (error) {
@@ -91,7 +91,7 @@ app.post('/usuariosW', async function (req, res) {
     if (usuarioExistente.length > 0) {
       res.send("El usuario ya existe");
     } else {
-      await realizarQuery('INSERT INTO Usuarios (nombre_usuario,mail,contrasena) VALUES ("${req.body.nombre_usuario}","${req.body.mail}","${req.body.contrasena}")');
+      await realizarQuery('INSERT INTO Usuarios (nombre_usuario,mail,contraseña) VALUES ("${req.body.nombre_usuario}","${req.body.mail}","${req.body.contraseña}")');
       res.send({message:"usuario agregado"})
     }
 
