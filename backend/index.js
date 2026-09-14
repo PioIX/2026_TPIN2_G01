@@ -161,26 +161,17 @@ app.get('/historialMensajes', async function(req, res){
 
   } catch (error) {
     res.send(error.message)
-//Agarrar usuarios de la base de datos
-app.get('/usuariosW', async function (req, res) {
-    try {
-      let respuesta = await realizarQuery('SELECT * FROM Usuarios WHERE mail="${req.query.mail}" AND contraseña="${req.query.contraseña}"');
-      res.send(respuesta);
-    }
-    catch (error) {
-      res.status(500).send({ error: error.message });
-    }
-})
+  }})
 
 //Registro para agregar un usuario a la base de datos, o sea que el usuario ponga un nombre en el campo, un mail, una contraseña y cuando toca el boton registro se guarde ese usuario y se sume a la base de datos
-app.post('/usuariosW', async function (req, res) {
+app.post('/registro', async function (req, res) {
   try {
-    let usuarioExistente = await realizarQuery('SELECT * FROM Usuarios WHERE mail="${req.body.mail}"');
+    let usuarioExistente = await realizarQuery(`SELECT * FROM Usuarios WHERE mail="${req.body.mail}"`);
     console.log(usuarioExistente)
     if (usuarioExistente.length > 0) {
       res.send("El usuario ya existe");
     } else {
-      await realizarQuery('INSERT INTO Usuarios (nombre_usuario,mail,contraseña) VALUES ("${req.body.nombre_usuario}","${req.body.mail}","${req.body.contraseña}")');
+      await realizarQuery(`INSERT INTO Usuarios (nombre_usuario,mail,contraseña) VALUES ("${req.body.nombre_usuario}","${req.body.mail}","${req.body.contraseña}")`);
       res.send({message:"usuario agregado"})
     }
 
@@ -190,19 +181,19 @@ app.post('/usuariosW', async function (req, res) {
 })
 
 //Iniciar sesion (login)
-app.post('/login', async function (req, res) {
+app.get('/login', async function (req, res) {
   try {
-    let usuario = await realizarQuery(`SELECT * FROM Usuarios WHERE mail="${req.body.mail}" AND contrasena="${req.body.contrasena}"`);
+    let usuario = await realizarQuery(`SELECT id_usuario, nombre, foto, mail FROM Usuarios WHERE mail="${req.query.mail}" AND contrasena="${req.query.contrasena}"`);
     if (usuario.length > 0) {
       res.send({
-        message: "Login exitoso"
+        existe:true
       });
     } else {
       res.send({
-        message: "Mail o contraseña incorrectos"
+      existe:false
       });
     }
   } catch (error) {
     res.status(500).send({ error: error.message });
   }
-});
+})
