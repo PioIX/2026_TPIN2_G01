@@ -12,6 +12,7 @@ export default function LoginPage() {
       .then(data => setValidacion(data));
   };
   return (<>
+    <h1>HOLA</h1>
     <p>{Validacion}</p>
   </>);
 }
