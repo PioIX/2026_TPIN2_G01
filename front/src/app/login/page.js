@@ -7,12 +7,12 @@ export default function LoginPage() {
   const [Validacion, setValidacion] = useState();
 
   const Vali = () => {
-    fetch("http://localhost:4000/notas")
+    fetch("http://localhost:4000/UsuariosW")
       .then(res => res.json())
       .then(data => setValidacion(data));
   };
+  console.log(Validacion)
   return (<>
-    <h1>HOLA</h1>
     <p>{Validacion}</p>
   </>);
 }

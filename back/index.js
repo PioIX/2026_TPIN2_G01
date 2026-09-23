@@ -75,7 +75,7 @@ io.on("connection", (socket) => {
 //Agarrar usuarios de la base de datos
 app.get('/usuariosW', async function (req, res) {
     try {
-      let respuesta = await realizarQuery('SELECT * FROM Usuarios WHERE mail="${req.query.mail}" AND contraseña="${req.query.contraseña}"');
+      let respuesta = await realizarQuery('SELECT * FROM UsuariosW');
       res.send(respuesta);
     }
     catch (error) {
