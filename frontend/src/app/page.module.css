@@ -148,3 +148,18 @@ a.secondary {
   padding: 0.1em 0.4em;
   border-radius: 6px;
 }
+
+/* ---------- Lista de chats (home) ---------- */
+.contenedor { display: flex; justify-content: center; padding: 24px 12px; }
+.panel { width: 100%; max-width: 600px; }
+.header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.header p { color: #777; font-size: 14px; }
+.botones { display: flex; gap: 8px; }
+.boton { background: #25d366; }
+.popup { display: flex; flex-direction: column; gap: 10px; padding: 20px; background: #fff; color: #111; border-radius: 10px; }
+.popup textarea { min-height: 80px; }
+.acciones { display: flex; gap: 8px; justify-content: flex-end; }
+.cancelar { background: #9ca3af; }
+.error { color: #dc2626; margin: 8px 0; }
+.mensaje { color: #16a34a; margin: 8px 0; }
+.lista { margin-top: 8px; }

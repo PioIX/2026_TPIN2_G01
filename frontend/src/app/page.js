@@ -1,5 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import ChatList from "@/components/ChatList"
 import Popup from "reactjs-popup"
 import "reactjs-popup/dist/index.css"
 import styles from "./page.module.css"
@@ -16,7 +18,9 @@ function obtenerUsuarioActual() {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [usuarioId, setUsuarioId] = useState(null);
+  const [errorPopup, setErrorPopup] = useState("");
   const [chats, setChats] = useState([]);
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
@@ -33,7 +37,8 @@ export default function Home() {
     if (id) {
       cargarChats(id);
     } else {
-      setError("No se encontró el usuario iniciado en localStorage.");
+      // No hay usuario logueado: vuelvo al login
+      router.push("/login");
     }
   }, []);
 
@@ -59,11 +64,11 @@ export default function Home() {
   }
 
   async function crearChat() {
-    setError("");
+    setErrorPopup("");
     setMensaje("");
 
     if (!mail.trim()) {
-      setError("Ingresá un mail.");
+      setErrorPopup("Ingresá un mail.");
       return;
     }
 
@@ -82,7 +87,7 @@ export default function Home() {
       const datos = await respuesta.json();
 
       if (!respuesta.ok || datos.error) {
-        setError(datos.error || "No se pudo crear el chat.");
+        setErrorPopup(datos.error || "No se pudo crear el chat.");
         return;
       }
 
@@ -90,13 +95,14 @@ export default function Home() {
       setMensaje("Chat creado correctamente.");
 
       await cargarChats();
+      return true;
     } catch {
-      setError("No se pudo conectar con el servidor.");
+      setErrorPopup("No se pudo conectar con el servidor.");
     }
   }
 
   async function crearGrupo() {
-    setError("");
+    setErrorPopup("");
     setMensaje("");
 
     const mails = grupoMails
@@ -105,12 +111,12 @@ export default function Home() {
       .filter(Boolean);
 
     if (!grupoNombre.trim()) {
-      setError("Ingresá un nombre para el grupo.");
+      setErrorPopup("Ingresá un nombre para el grupo.");
       return;
     }
 
     if (mails.length === 0) {
-      setError("Ingresá al menos un mail.");
+      setErrorPopup("Ingresá al menos un mail.");
       return;
     }
 
@@ -131,7 +137,7 @@ export default function Home() {
       const datos = await respuesta.json();
 
       if (!respuesta.ok || datos.error) {
-        setError(datos.error || "No se pudo crear el grupo.");
+        setErrorPopup(datos.error || "No se pudo crear el grupo.");
         return;
       }
 
@@ -142,8 +148,9 @@ export default function Home() {
       setMensaje("Grupo creado correctamente.");
 
       await cargarChats();
+      return true;
     } catch {
-      setError("No se pudo conectar con el servidor.");
+      setErrorPopup("No se pudo conectar con el servidor.");
     }
   }
 
@@ -166,6 +173,7 @@ export default function Home() {
             <Popup
               modal
               nested
+              onOpen={() => { setErrorPopup(""); setMensaje(""); }}
               trigger={
                 <button className={styles.boton}>
                   Nuevo chat
@@ -177,6 +185,8 @@ export default function Home() {
 
                   <h2>Nuevo chat</h2>
 
+                  {errorPopup && <p className={styles.error}>{errorPopup}</p>}
+
                   <input
                     type="email"
                     placeholder="Mail del usuario"
@@ -185,7 +195,7 @@ export default function Home() {
                   />
 
                   <div className={styles.acciones}>
-                    <button onClick={crearChat}>
+                    <button onClick={() => crearChat().then((ok) => ok && close())}>
                       Crear
                     </button>
 
@@ -204,6 +214,7 @@ export default function Home() {
             <Popup
               modal
               nested
+              onOpen={() => { setErrorPopup(""); setMensaje(""); }}
               trigger={
                 <button className={styles.boton}>
                   Nuevo grupo
@@ -214,6 +225,8 @@ export default function Home() {
                 <div className={styles.popup}>
 
                   <h2>Nuevo grupo</h2>
+
+                  {errorPopup && <p className={styles.error}>{errorPopup}</p>}
 
                   <input
                     type="text"
@@ -257,7 +270,7 @@ export default function Home() {
 
                   <div className={styles.acciones}>
 
-                    <button onClick={crearGrupo}>
+                    <button onClick={() => crearGrupo().then((ok) => ok && close())}>
                       Crear grupo
                     </button>
 
@@ -291,50 +304,10 @@ export default function Home() {
         )}
 
         <div className={styles.lista}>
-
-          {chats.length === 0 ? (
-            <p className={styles.vacio}>
-              No tenés chats asignados.
-            </p>
-          ) : (
-
-            chats.map((chat) => (
-
-              <article
-                className={styles.chat}
-                key={chat.id_chat}
-              >
-
-                <img
-                  className={styles.foto}
-                  src={fotoChat(chat)}
-                  alt=""
-                  onError={(e) => {
-                    e.currentTarget.src =
-                      "/default-chat.svg";
-                  }}
-                />
-
-                <div>
-
-                  <h2>
-                    {chat.nombre || "Chat sin nombre"}
-                  </h2>
-
-                  {chat.es_grupo && (
-                    <span className={styles.grupo}>
-                      Grupo
-                    </span>
-                  )}
-
-                  {chat.descripcion && (
-                    <p>{chat.descripcion}</p>
-                  )}
-                </div>
-              </article>
-            ))
-          )}
-
+          <ChatList
+            chats={chats}
+            onSelect={(id) => router.push(`/chat?id_chat=${id}`)}
+          />
         </div>
       </section>
     </main>
