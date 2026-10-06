@@ -1,6 +1,9 @@
 "use client"
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Boton from "@/components/Boton";
+import Input from "@/components/Input";
 
 export default function RegisterPage() {
   const [nombre, setNombre] = useState("");
@@ -8,8 +11,14 @@ export default function RegisterPage() {
   const [contraseña, setContraseña] = useState("");
   const [foto, setFoto] = useState("");
   const [mensaje, setMensaje] = useState("");
+  const router = useRouter();
 
   const Registro = () => {
+    if (!nombre.trim() || !mail.trim() || !contraseña.trim()) {
+      setMensaje("Completá nombre, mail y contraseña");
+      return;
+    }
+
     fetch("http://localhost:4000/register", {
       method: "POST",
       headers: {
@@ -25,6 +34,9 @@ export default function RegisterPage() {
       .then(res => res.json())
       .then(data => {
         setMensaje(data.message);
+        if (data.ok) {
+          router.push("/login");
+        }
       })
       .catch(error => {
         console.log(error);
@@ -33,36 +45,36 @@ export default function RegisterPage() {
   };
 
   return (
-    <div>
+    <div className="formulario">
 
       <h1>Registrarse</h1>
 
-      <input
-        type="text"
+      <Input
+        tipo="text"
         placeholder="Nombre"
-        value={nombre}
-        onChange={(e) => setNombre(e.target.value)}
+        valor={nombre}
+        onChange={setNombre}
       />
 
-      <input
-        type="email"
+      <Input
+        tipo="email"
         placeholder="Mail"
-        value={mail}
-        onChange={(e) => setMail(e.target.value)}
+        valor={mail}
+        onChange={setMail}
       />
 
-      <input
-        type="password"
+      <Input
+        tipo="password"
         placeholder="Contraseña"
-        value={contraseña}
-        onChange={(e) => setContraseña(e.target.value)}
+        valor={contraseña}
+        onChange={setContraseña}
       />
 
-      <input
-        type="text"
-        placeholder="Foto"
-        value={foto}
-        onChange={(e) => setFoto(e.target.value)}
+      <Input
+        tipo="text"
+        placeholder="Foto (URL o ruta, ej: /usuarios/guille.svg)"
+        valor={foto}
+        onChange={setFoto}
       />
 
       <Boton
@@ -71,6 +83,8 @@ export default function RegisterPage() {
       />
 
       <p>{mensaje}</p>
+
+      <p>¿Ya tenés cuenta? <Link href="/login">Iniciá sesión</Link></p>
 
     </div>
   );
