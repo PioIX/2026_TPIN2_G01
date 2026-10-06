@@ -5,6 +5,8 @@
   "main": "index.js",
   "bin": "index.js",
   "scripts": {
+    "pio": "nodemon --env-file=.pio.env index.js",
+    "home": "nodemon --env-file=.home.env index.js",
     "start": "node index.js",
     "dev": "nodemon index.js",
     "build": "pkg . --targets node18-win-x64 --output build/backend-tp2.exe",

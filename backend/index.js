@@ -83,6 +83,11 @@ io.on('connection', function(socket){
 
 });
 
+//Agarrar usuarios de la base de datos
+app.get('/usuariosW', async function (req, res) {
+    try {
+      let respuesta = await realizarQuery('SELECT * FROM UsuariosW');
+      res.send(respuesta);
 app.get('/', function(req, res){
     res.status(200).send({ 
         message: 'Funciona'
@@ -164,14 +169,15 @@ app.get('/historialMensajes', async function(req, res){
   }})
 
 //Registro para agregar un usuario a la base de datos, o sea que el usuario ponga un nombre en el campo, un mail, una contraseña y cuando toca el boton registro se guarde ese usuario y se sume a la base de datos
-app.post('/registro', async function (req, res) {
+app.post('/register', async function (req, res) {
   try {
-    let usuarioExistente = await realizarQuery(`SELECT * FROM Usuarios WHERE mail="${req.body.mail}"`);
+    let usuarioExistente = await realizarQuery(`SELECT * FROM UsuariosW WHERE mail="${req.body.mail}"`);
     console.log(usuarioExistente)
+
     if (usuarioExistente.length > 0) {
       res.send("El usuario ya existe");
     } else {
-      await realizarQuery(`INSERT INTO Usuarios (nombre_usuario,mail,contraseña) VALUES ("${req.body.nombre_usuario}","${req.body.mail}","${req.body.contraseña}")`);
+      await realizarQuery(`INSERT INTO UsuariosW (nombre,mail,contraseña, foto) VALUES ("${req.body.nombre}","${req.body.mail}","${req.body.contraseña}", "${req.body.foto}")`);
       res.send({message:"usuario agregado"})
     }
 
