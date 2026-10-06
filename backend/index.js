@@ -1,11 +1,15 @@
 const express = require("express");
+var bodyParser = require('body-parser'); //Convierte los JSON
 const cors = require("cors");
 const session = require("express-session");
 const { Server } = require("socket.io");
+const { realizarQuery } = require('./modulos/mysql');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+app.use(bodyParser.urlencoded({extended:false}));
+app.use(bodyParser.json());
 app.use(cors());
 app.use(express.json());
 
@@ -32,44 +36,51 @@ io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
 
-let contador = 0;
 
-io.on("connection", (socket) => {
-  const req = socket.request;
+io.on('connection', function(socket){
 
-  socket.on("joinRoom", (data) => {
-    if (req.session.room != undefined && req.session.room.length > 0) {
-      socket.leave(req.session.room);
+  // El cliente se une a la room del chat que tiene abierto
+  socket.on('unirseChat', function(idChat){
+    socket.join('chat_' + idChat);
+  });
+
+  // El cliente sale de la room cuando cierra el chat (opcional pero recomendado)
+  socket.on('salirChat', function(idChat){
+    socket.leave('chat_' + idChat);
+  });
+
+  // Envío de un mensaje nuevo
+  socket.on('enviarMensaje', async function(data){
+    try {
+      // data = { id_usuario, id_chat, texto }
+
+      // Guardo el mensaje en la base para que el historial persista
+      const resultado = await realizarQuery(`INSERT INTO Mensajes (texto, fecha, id_usuario, id_chat) VALUES ('${data.texto}', NOW(), ${data.id_usuario}, ${data.id_chat})`);
+
+      // Busco el nombre del usuario para mandarlo junto al mensaje
+      const usuario = await realizarQuery(`SELECT nombre FROM UsuariosW WHERE id_usuario=${data.id_usuario}`);
+
+      const mensaje = {
+        id_mensaje: resultado.insertId,
+        texto: data.texto,
+        fecha: new Date(),
+        id_usuario: data.id_usuario,
+        nombre: usuario[0].nombre,
+        id_chat: data.id_chat
+      };
+
+      // Emito el mensaje a todos los conectados a ese chat (incluido quien lo mandó)
+      io.to('chat_' + data.id_chat).emit('nuevoMensaje', mensaje);
+
+    } catch (error) {
+      socket.emit('errorMensaje', error.message);
     }
-    req.session.room = data.room;
-    socket.join(req.session.room);
-
-    io.to(req.session.room).emit("chat-messages", {
-      user: req.session.user,
-      room: req.session.room,
-    });
   });
 
-  socket.on("pingAll", (data) => {
-    console.log("PING ALL:", data);
-    io.emit("pingAll", { event: "Ping to all", message: data });
+  socket.on('disconnect', function(){
+    // Socket.IO saca automáticamente al socket de todas las rooms al desconectarse
   });
 
-  socket.on("sendMessage", (data) => {
-    io.to(req.session.room).emit("newMessage", {
-      room: req.session.room,
-      message: data.message,
-    });
-  });
-
-  socket.on("eventoPersonalizado", () => {
-    contador++;
-    socket.emit("respuestaPersonalizada", { contador });
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Disconnect");
-  });
 });
 
 //Agarrar usuarios de la base de datos
@@ -77,11 +88,85 @@ app.get('/usuariosW', async function (req, res) {
     try {
       let respuesta = await realizarQuery('SELECT * FROM UsuariosW');
       res.send(respuesta);
+app.get('/', function(req, res){
+    res.status(200).send({ 
+        message: 'Funciona'
+    });
+});
+
+app.get('/listachats', async function(req, res){
+  try {
+    chats=await realizarQuery(`SELECT Chats.id_chat,Chats.nombre,Chats.descripcion FROM Chats inner join ChatsUsuarios on ChatsUsuarios.id_chat=Chats.id_chat inner join UsuariosW on UsuariosW.id_usuario=ChatsUsuarios.id_usuario Where UsuariosW.id_usuario=${req.query.usuario}`)
+    res.send(chats)
+
+  } catch (error) {
+    res.send(error.message)
+  }
+
+});
+
+app.post('/crearChat', async function(req, res){
+  try {
+    const idUsuario = req.body.usuario;
+    const mailOtro = req.body.mail;
+
+    // Busco el id del otro usuario a partir del mail
+    const otroUsuario = await realizarQuery(`SELECT id_usuario FROM UsuariosW WHERE mail='${mailOtro}'`);
+    if(otroUsuario.length === 0){
+      return res.send({error: 'No existe un usuario con ese mail'});
     }
-    catch (error) {
-      res.status(500).send({ error: error.message });
+    const idOtroUsuario = otroUsuario[0].id_usuario;
+
+    // Creo el chat
+    const nuevoChat = await realizarQuery(`INSERT INTO Chats (nombre, descripcion) VALUES ('${req.body.nombre || ''}', '${req.body.descripcion || ''}')`);
+    const idChat = nuevoChat.insertId;
+
+    // Vinculo a los dos usuarios con el chat
+    await realizarQuery(`INSERT INTO ChatsUsuarios (id_usuario, id_chat) VALUES (${idUsuario}, ${idChat})`);
+    await realizarQuery(`INSERT INTO ChatsUsuarios (id_usuario, id_chat) VALUES (${idOtroUsuario}, ${idChat})`);
+
+    res.send({id_chat: idChat});
+
+  } catch (error) {
+    res.send(error.message)
+  }
+});
+
+app.post('/crearChatGrupal', async function(req, res){
+  try {
+    const idUsuario = req.body.usuario;
+    const mails = req.body.mails; // array de mails
+
+    // Creo el chat grupal
+    const nuevoChat = await realizarQuery(`INSERT INTO Chats (nombre, descripcion) VALUES ('${req.body.nombre || ''}', '${req.body.descripcion || ''}')`);
+    const idChat = nuevoChat.insertId;
+
+    // Agrego al creador
+    await realizarQuery(`INSERT INTO ChatsUsuarios (id_usuario, id_chat) VALUES (${idUsuario}, ${idChat})`);
+
+    // Busco y agrego a cada usuario invitado por mail
+    for (const mail of mails) {
+      const usuario = await realizarQuery(`SELECT id_usuario FROM UsuariosW WHERE mail='${mail}'`);
+      if (usuario.length > 0) {
+        await realizarQuery(`INSERT INTO ChatsUsuarios (id_usuario, id_chat) VALUES (${usuario[0].id_usuario}, ${idChat})`);
+      }
     }
-})
+
+    res.send({id_chat: idChat});
+
+  } catch (error) {
+    res.send(error.message)
+  }
+});
+
+app.get('/historialMensajes', async function(req, res){
+  try {
+    const mensajes = await realizarQuery(`SELECT Mensajes.id_mensaje, Mensajes.texto, Mensajes.fecha, Mensajes.id_usuario, UsuariosW.nombre FROM Mensajes INNER JOIN UsuariosW ON UsuariosW.id_usuario=Mensajes.id_usuario WHERE Mensajes.id_chat=${req.query.chat} ORDER BY Mensajes.fecha ASC`);
+    res.send(mensajes);
+
+  } catch (error) {
+    res.send(error.message)
+  }})
 
 //Registro para agregar un usuario a la base de datos, o sea que el usuario ponga un nombre en el campo, un mail, una contraseña y cuando toca el boton registro se guarde ese usuario y se sume a la base de datos
 app.post('/register', async function (req, res) {
@@ -102,19 +187,19 @@ app.post('/register', async function (req, res) {
 })
 
 //Iniciar sesion (login)
-app.post('/login', async function (req, res) {
+app.get('/login', async function (req, res) {
   try {
-    let usuario = await realizarQuery(`SELECT * FROM UsuariosW WHERE mail="${req.body.mail}" AND contraseña="${req.body.contraseña}"`);
+    let usuario = await realizarQuery(`SELECT id_usuario, nombre, foto, mail FROM Usuarios WHERE mail="${req.query.mail}" AND contrasena="${req.query.contrasena}"`);
     if (usuario.length > 0) {
       res.send({
-        message: "Login exitoso"
+        existe:true
       });
     } else {
       res.send({
-        message: "Mail o contraseña incorrectos"
+      existe:false
       });
     }
   } catch (error) {
     res.status(500).send({ error: error.message });
   }
-});
+})

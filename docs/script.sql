@@ -11,6 +11,8 @@ create table if not exists Chats(
 id_chat int auto_increment unique not null,
 nombre varchar(255),
 descripcion varchar(255),
+es_grupo boolean,
+foto varchar(255),
 primary key(id_chat)
 );
 

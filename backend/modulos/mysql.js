@@ -1,4 +1,4 @@
-﻿//Sección MySQL del código
+//Sección MySQL del código
 const mySql = require("mysql2/promise");
 
 /**
