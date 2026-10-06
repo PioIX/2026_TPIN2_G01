@@ -1,12 +1,16 @@
 "use client"
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Boton from "@/components/Boton";
+import Input from "@/components/Input";
 
-export default function loginPage() {
+export default function LoginPage() {
   const [mail, setMail] = useState("");
   const [contraseña, setContraseña] = useState("");
   const [mensaje, setMensaje] = useState("");
+  const router = useRouter();
 
   const Login = () => {
     fetch("http://localhost:4000/login", {
@@ -22,6 +26,11 @@ export default function loginPage() {
       .then(res => res.json())
       .then(data => {
         setMensaje(data.message);
+        if (data.existe) {
+          // Guardo el usuario logueado y voy a la lista de chats
+          localStorage.setItem("usuarios", JSON.stringify(data.usuario));
+          router.push("/");
+        }
       })
       .catch(error => {
         console.log(error);
@@ -30,21 +39,21 @@ export default function loginPage() {
   };
 
   return (
-    <div>
+    <div className="formulario">
       <h1>Iniciar sesión</h1>
 
-      <input
-        type="email"
+      <Input
+        tipo="email"
         placeholder="Mail"
-        value={mail}
-        onChange={(e) => setMail(e.target.value)}
+        valor={mail}
+        onChange={setMail}
       />
 
-      <input
-        type="password"
+      <Input
+        tipo="password"
         placeholder="Contraseña"
-        value={contraseña}
-        onChange={(e) => setContraseña(e.target.value)}
+        valor={contraseña}
+        onChange={setContraseña}
       />
 
       <Boton
@@ -53,6 +62,8 @@ export default function loginPage() {
       />
 
       <p>{mensaje}</p>
+
+      <p>¿No tenés cuenta? <Link href="/register">Registrate</Link></p>
 
     </div>
   );

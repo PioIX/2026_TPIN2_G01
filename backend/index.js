@@ -8,10 +8,10 @@ const { realizarQuery } = require('./modulos/mysql');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(bodyParser.urlencoded({extended:false}));
-app.use(bodyParser.json());
 app.use(cors());
-app.use(express.json());
+// Un solo parser de body (si hay dos, el segundo falla con "stream is not readable")
+app.use(express.urlencoded({extended:false, limit:'10mb'}));
+app.use(express.json({limit:'10mb'}));
 
 const sessionMiddleware = session({
   secret: "supersarasa",
@@ -85,9 +85,14 @@ io.on('connection', function(socket){
 
 //Agarrar usuarios de la base de datos
 app.get('/usuariosW', async function (req, res) {
-    try {
-      let respuesta = await realizarQuery('SELECT * FROM UsuariosW');
-      res.send(respuesta);
+  try {
+    let respuesta = await realizarQuery('SELECT id_usuario, nombre, mail, foto FROM UsuariosW');
+    res.send(respuesta);
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
+});
+
 app.get('/', function(req, res){
     res.status(200).send({ 
         message: 'Funciona'
@@ -102,7 +107,6 @@ app.get('/listachats', async function(req, res){
   } catch (error) {
     res.send(error.message)
   }
-
 });
 
 app.post('/crearChat', async function(req, res){
@@ -137,19 +141,30 @@ app.post('/crearChatGrupal', async function(req, res){
     const idUsuario = req.body.usuario;
     const mails = req.body.mails; // array de mails
 
+    if(!Array.isArray(mails) || mails.length === 0){
+      return res.send({error: 'Ingresá al menos un mail'});
+    }
+
+    // Primero valido que existan TODOS los mails; si alguno no existe, no se crea el grupo
+    const ids = [];
+    for (const mail of mails) {
+      const usuario = await realizarQuery("SELECT id_usuario FROM UsuariosW WHERE mail=?", [mail]);
+      if (usuario.length === 0) {
+        return res.send({error: 'No existe un usuario con el mail ' + mail});
+      }
+      if (Number(usuario[0].id_usuario) !== Number(idUsuario) && !ids.includes(usuario[0].id_usuario)) {
+        ids.push(usuario[0].id_usuario);
+      }
+    }
+
     // Creo el chat grupal
-    const nuevoChat = await realizarQuery(`INSERT INTO Chats (nombre, descripcion) VALUES ('${req.body.nombre || ''}', '${req.body.descripcion || ''}')`);
+    const nuevoChat = await realizarQuery("INSERT INTO Chats (nombre, descripcion, es_grupo, foto) VALUES (?, ?, 1, ?)", [req.body.nombre || '', req.body.descripcion || '', req.body.foto || null]);
     const idChat = nuevoChat.insertId;
 
-    // Agrego al creador
-    await realizarQuery(`INSERT INTO ChatsUsuarios (id_usuario, id_chat) VALUES (${idUsuario}, ${idChat})`);
-
-    // Busco y agrego a cada usuario invitado por mail
-    for (const mail of mails) {
-      const usuario = await realizarQuery(`SELECT id_usuario FROM UsuariosW WHERE mail='${mail}'`);
-      if (usuario.length > 0) {
-        await realizarQuery(`INSERT INTO ChatsUsuarios (id_usuario, id_chat) VALUES (${usuario[0].id_usuario}, ${idChat})`);
-      }
+    // Agrego al creador y a cada usuario invitado
+    await realizarQuery("INSERT INTO ChatsUsuarios (id_usuario, id_chat) VALUES (?, ?)", [idUsuario, idChat]);
+    for (const id of ids) {
+      await realizarQuery("INSERT INTO ChatsUsuarios (id_usuario, id_chat) VALUES (?, ?)", [id, idChat]);
     }
 
     res.send({id_chat: idChat});
@@ -172,13 +187,12 @@ app.get('/historialMensajes', async function(req, res){
 app.post('/register', async function (req, res) {
   try {
     let usuarioExistente = await realizarQuery(`SELECT * FROM UsuariosW WHERE mail="${req.body.mail}"`);
-    console.log(usuarioExistente)
 
     if (usuarioExistente.length > 0) {
-      res.send("El usuario ya existe");
+      res.send({message:"El usuario ya existe"});
     } else {
       await realizarQuery(`INSERT INTO UsuariosW (nombre,mail,contraseña, foto) VALUES ("${req.body.nombre}","${req.body.mail}","${req.body.contraseña}", "${req.body.foto}")`);
-      res.send({message:"usuario agregado"})
+      res.send({message:"usuario agregado", ok:true})
     }
 
     } catch (error) {
@@ -187,16 +201,19 @@ app.post('/register', async function (req, res) {
 })
 
 //Iniciar sesion (login)
-app.get('/login', async function (req, res) {
+app.post('/login', async function (req, res) {
   try {
-    let usuario = await realizarQuery(`SELECT id_usuario, nombre, foto, mail FROM Usuarios WHERE mail="${req.query.mail}" AND contrasena="${req.query.contrasena}"`);
+    let usuario = await realizarQuery("SELECT id_usuario, nombre, foto, mail FROM UsuariosW WHERE mail=? AND contraseña=?", [req.body.mail, req.body.contraseña]);
     if (usuario.length > 0) {
       res.send({
-        existe:true
+        existe:true,
+        message:"Login correcto",
+        usuario: usuario[0]
       });
     } else {
       res.send({
-      existe:false
+        existe:false,
+        message:"Mail o contraseña incorrectos"
       });
     }
   } catch (error) {
